@@ -23,10 +23,16 @@ const $ = (selector) => document.querySelector(selector);
 
 function shuffle(items) {
   const result = [...items];
+
   for (let i = result.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
-    [result[i], result[j]] = [result[j], result[i]];
+
+    [result[i], result[j]] = [
+      result[j],
+      result[i],
+    ];
   }
+
   return result;
 }
 
@@ -50,20 +56,35 @@ function escapeHtml(value) {
 }
 
 function questionSection(question) {
-  if (question.scope === "state") return "Landesfragen";
-  if (question.number <= 150) return "Leben in der Demokratie";
-  if (question.number <= 240) return "Geschichte und Verantwortung";
+  if (question.scope === "state") {
+    return "Landesfragen";
+  }
+
+  if (question.number <= 150) {
+    return "Leben in der Demokratie";
+  }
+
+  if (question.number <= 240) {
+    return "Geschichte und Verantwortung";
+  }
+
   return "Mensch und Gesellschaft";
 }
 
 function questionImage(question) {
   const image = (question.images || []).find(
-    (entry) => entry.file && state.imageUrls.has(entry.file),
+    (entry) =>
+      entry.file &&
+      state.imageUrls.has(entry.file),
   );
 
-  if (!image) return "";
+  if (!image) {
+    return "";
+  }
 
-  const src = state.imageUrls.get(image.file);
+  const src = state.imageUrls.get(
+    image.file,
+  );
 
   return `
     <img
@@ -76,22 +97,39 @@ function questionImage(question) {
 }
 
 function correctAnswers(question) {
-  return (question.answers || []).filter((answer) => answer.correct);
+  return (question.answers || []).filter(
+    (answer) => answer.correct,
+  );
 }
 
 function renderAnswerList(
   question,
-  { interactive = false, reveal = false, selected = null } = {},
+  {
+    interactive = false,
+    reveal = false,
+    selected = null,
+  } = {},
 ) {
   return (question.answers || [])
     .map((answer, index) => {
-      const checked = selected === index ? "checked" : "";
-      const isCorrect = Boolean(answer.correct);
+      const checked =
+        selected === index
+          ? "checked"
+          : "";
+
+      const isCorrect =
+        Boolean(answer.correct);
 
       const classNames = [
         "answer",
-        reveal && isCorrect ? "correct" : "",
-        reveal && selected === index && !isCorrect ? "wrong" : "",
+        reveal && isCorrect
+          ? "correct"
+          : "",
+        reveal &&
+        selected === index &&
+        !isCorrect
+          ? "wrong"
+          : "",
       ]
         .filter(Boolean)
         .join(" ");
@@ -100,11 +138,24 @@ function renderAnswerList(
         <label class="${classNames}">
           ${
             interactive
-              ? `<input type="radio" name="answer" value="${index}" ${checked}>`
+              ? `
+                <input
+                  type="radio"
+                  name="answer"
+                  value="${index}"
+                  ${checked}
+                >
+              `
               : ""
           }
-          <span class="answer-letter">${String.fromCharCode(65 + index)}</span>
-          <span>${escapeHtml(answer.text)}</span>
+
+          <span class="answer-letter">
+            ${String.fromCharCode(65 + index)}
+          </span>
+
+          <span>
+            ${escapeHtml(answer.text)}
+          </span>
         </label>
       `;
     })
@@ -114,7 +165,9 @@ function renderAnswerList(
 function showView(id) {
   document
     .querySelectorAll(".view")
-    .forEach((view) => view.classList.remove("active"));
+    .forEach((view) =>
+      view.classList.remove("active"),
+    );
 
   $(`#${id}`).classList.add("active");
 
@@ -125,95 +178,173 @@ function showView(id) {
 }
 
 function progressBar(current, total) {
-  const percent = Math.round(((current + 1) / total) * 100);
+  const percent = Math.round(
+    ((current + 1) / total) * 100,
+  );
 
-  return `<div class="progress-bar" style="width:${percent}%"></div>`;
+  return `
+    <div
+      class="progress-bar"
+      style="width:${percent}%"
+    ></div>
+  `;
 }
 
 function renderStudy() {
-  const question = state.studyQuestions[state.studyIndex];
-  const total = state.studyQuestions.length;
+  const question =
+    state.studyQuestions[
+      state.studyIndex
+    ];
 
-  $("#studyTitle").textContent = `${state.selectedState} · 310 Fragen`;
-  $("#studyProgress").innerHTML = progressBar(state.studyIndex, total);
+  const total =
+    state.studyQuestions.length;
+
+  $("#studyTitle").textContent =
+    `${state.selectedState} · 310 Fragen`;
+
+  $("#studyProgress").innerHTML =
+    progressBar(
+      state.studyIndex,
+      total,
+    );
 
   $("#studyCard").innerHTML = `
     <div class="question-meta">
-      <span>Frage ${question.number} von 310</span>
-      <span>${escapeHtml(questionSection(question))}</span>
+      <span>
+        Frage ${question.number} von 310
+      </span>
+
+      <span>
+        ${escapeHtml(
+          questionSection(question),
+        )}
+      </span>
     </div>
 
     ${questionImage(question)}
 
     <h3>
       ${escapeHtml(
-        question.question_text || question.image_text || "Frage ohne Text",
+        question.question_text ||
+          question.image_text ||
+          "Frage ohne Text",
       )}
     </h3>
 
     <div class="answers">
-      ${renderAnswerList(question, { interactive: true })}
+      ${renderAnswerList(
+        question,
+        {
+          interactive: true,
+        },
+      )}
     </div>
 
-    <div id="studyExplanation" class="explanation" hidden>
-      <strong>Richtige Antwort:</strong>
+    <div
+      id="studyExplanation"
+      class="explanation"
+      hidden
+    >
+      <strong>
+        Richtige Antwort:
+      </strong>
+
       ${
         correctAnswers(question)
-          .map((answer) => escapeHtml(answer.text))
-          .join(" · ") || "Keine Antwort markiert."
+          .map((answer) =>
+            escapeHtml(answer.text),
+          )
+          .join(" · ") ||
+        "Keine Antwort markiert."
       }
     </div>
   `;
 
-  const inputs = $("#studyCard").querySelectorAll(
-    'input[name="answer"]',
-  );
+  const inputs =
+    $("#studyCard").querySelectorAll(
+      'input[name="answer"]',
+    );
 
   inputs.forEach((input) => {
-    input.addEventListener("change", () => {
-      const selected = Number(input.value);
+    input.addEventListener(
+      "change",
+      () => {
+        const selected =
+          Number(input.value);
 
-      $("#studyCard")
-        .querySelectorAll(".answer")
-        .forEach((label, index) => {
-          label.classList.toggle(
-            "correct",
-            Boolean(question.answers[index]?.correct),
+        $("#studyCard")
+          .querySelectorAll(".answer")
+          .forEach(
+            (label, index) => {
+              label.classList.toggle(
+                "correct",
+                Boolean(
+                  question.answers[
+                    index
+                  ]?.correct,
+                ),
+              );
+
+              label.classList.toggle(
+                "wrong",
+                index ===
+                  selected &&
+                !question.answers[
+                  index
+                ]?.correct,
+              );
+            },
           );
 
-          label.classList.toggle(
-            "wrong",
-            index === selected && !question.answers[index]?.correct,
-          );
-        });
-
-      $("#studyExplanation").hidden = false;
-    });
+        $(
+          "#studyExplanation",
+        ).hidden = false;
+      },
+    );
   });
 
-  $("#studyPrev").disabled = state.studyIndex === 0;
+  $("#studyPrev").disabled =
+    state.studyIndex === 0;
 
   $("#studyNext").textContent =
-    state.studyIndex === total - 1 ? "Fertig ✓" : "Weiter →";
+    state.studyIndex === total - 1
+      ? "Fertig ✓"
+      : "Weiter →";
 }
 
 function startStudy(reset = true) {
-  if (reset || !state.studyQuestions.length) {
+  if (
+    reset ||
+    !state.studyQuestions.length
+  ) {
     state.studyQuestions = [
       ...state.allQuestions
-        .filter((q) => q.scope === "general")
-        .sort((a, b) => a.number - b.number),
+        .filter(
+          (q) =>
+            q.scope === "general",
+        )
+        .sort(
+          (a, b) =>
+            a.number - b.number,
+        ),
 
       ...state.allQuestions
         .filter(
           (q) =>
             q.scope === "state" &&
-            q.state === state.selectedState,
+            q.state ===
+              state.selectedState,
         )
-        .sort((a, b) => a.number - b.number),
+        .sort(
+          (a, b) =>
+            a.number - b.number,
+        ),
     ];
 
-    if (state.studyQuestions.length !== 310) {
+    if (
+      state.studyQuestions.length !==
+      310
+    ) {
       throw new Error(
         `Expected 310 study questions for ${state.selectedState}, got ${state.studyQuestions.length}.`,
       );
@@ -227,27 +358,39 @@ function startStudy(reset = true) {
 }
 
 function buildExam() {
-  const general = state.allQuestions.filter(
-    (q) => q.scope === "general",
-  );
+  const general =
+    state.allQuestions.filter(
+      (q) => q.scope === "general",
+    );
 
-  const stateQuestions = state.allQuestions.filter(
-    (q) =>
-      q.scope === "state" &&
-      q.state === state.selectedState,
-  );
+  const stateQuestions =
+    state.allQuestions.filter(
+      (q) =>
+        q.scope === "state" &&
+        q.state ===
+          state.selectedState,
+    );
 
-  const poolA = general.filter(
-    (q) => q.number >= 1 && q.number <= 150,
-  );
+  const poolA =
+    general.filter(
+      (q) =>
+        q.number >= 1 &&
+        q.number <= 150,
+    );
 
-  const poolB = general.filter(
-    (q) => q.number >= 151 && q.number <= 240,
-  );
+  const poolB =
+    general.filter(
+      (q) =>
+        q.number >= 151 &&
+        q.number <= 240,
+    );
 
-  const poolC = general.filter(
-    (q) => q.number >= 241 && q.number <= 300,
-  );
+  const poolC =
+    general.filter(
+      (q) =>
+        q.number >= 241 &&
+        q.number <= 300,
+    );
 
   if (
     poolA.length < 10 ||
@@ -260,105 +403,163 @@ function buildExam() {
     );
   }
 
-  state.examQuestions = shuffle([
-    ...sample(poolA, 10),
-    ...sample(poolB, 10),
-    ...sample(poolC, 10),
-    ...sample(stateQuestions, 3),
-  ]);
+  state.examQuestions =
+    shuffle([
+      ...sample(poolA, 10),
+      ...sample(poolB, 10),
+      ...sample(poolC, 10),
+      ...sample(
+        stateQuestions,
+        3,
+      ),
+    ]);
 
-  state.examAnswers = Array(
-    state.examQuestions.length,
-  ).fill(null);
+  state.examAnswers =
+    Array(
+      state.examQuestions.length,
+    ).fill(null);
 }
 
 function renderExam() {
-  $("#examProgress").innerHTML = progressBar(
-    0,
-    state.examQuestions.length,
-  );
+  $("#examProgress").innerHTML =
+    progressBar(
+      0,
+      state.examQuestions.length,
+    );
 
-  $("#examForm").innerHTML = state.examQuestions
-    .map(
-      (question, index) => `
-        <article class="exam-question">
-          <div class="question-meta">
-            <span>Frage ${index + 1} von 33</span>
-            <span>${escapeHtml(questionSection(question))}</span>
-          </div>
+  $("#examForm").innerHTML =
+    state.examQuestions
+      .map(
+        (question, index) => `
+          <article class="exam-question">
+            <div class="question-meta">
+              <span>
+                Frage ${index + 1} von 33
+              </span>
 
-          ${questionImage(question)}
+              <span>
+                ${escapeHtml(
+                  questionSection(
+                    question,
+                  ),
+                )}
+              </span>
+            </div>
 
-          <h3>
-            ${escapeHtml(
-              question.question_text ||
-                question.image_text ||
-                "Frage ohne Text",
-            )}
-          </h3>
+            ${questionImage(question)}
 
-          <div class="answers">
-            ${(question.answers || [])
-              .map(
-                (answer, answerIndex) => `
-                  <label class="answer">
-                    <input
-                      type="radio"
-                      name="exam-${index}"
-                      value="${answerIndex}"
-                      ${
-                        state.examAnswers[index] === answerIndex
-                          ? "checked"
-                          : ""
-                      }
-                    >
-                    <span class="answer-letter">
-                      ${String.fromCharCode(65 + answerIndex)}
-                    </span>
-                    <span>${escapeHtml(answer.text)}</span>
-                  </label>
-                `,
-              )
-              .join("")}
-          </div>
-        </article>
-      `,
-    )
-    .join("");
+            <h3>
+              ${escapeHtml(
+                question.question_text ||
+                  question.image_text ||
+                  "Frage ohne Text",
+              )}
+            </h3>
+
+            <div class="answers">
+              ${(question.answers || [])
+                .map(
+                  (
+                    answer,
+                    answerIndex,
+                  ) => `
+                    <label class="answer">
+                      <input
+                        type="radio"
+                        name="exam-${index}"
+                        value="${answerIndex}"
+                        ${
+                          state
+                            .examAnswers[
+                            index
+                          ] ===
+                          answerIndex
+                            ? "checked"
+                            : ""
+                        }
+                      >
+
+                      <span class="answer-letter">
+                        ${String.fromCharCode(
+                          65 +
+                            answerIndex,
+                        )}
+                      </span>
+
+                      <span>
+                        ${escapeHtml(
+                          answer.text,
+                        )}
+                      </span>
+                    </label>
+                  `,
+                )
+                .join("")}
+            </div>
+          </article>
+        `,
+      )
+      .join("");
 
   $("#examForm")
-    .querySelectorAll("input[type=radio]")
+    .querySelectorAll(
+      "input[type=radio]",
+    )
     .forEach((input) => {
-      input.addEventListener("change", () => {
-        const questionIndex = Number(
-          input.name.replace("exam-", ""),
-        );
+      input.addEventListener(
+        "change",
+        () => {
+          const questionIndex =
+            Number(
+              input.name.replace(
+                "exam-",
+                "",
+              ),
+            );
 
-        state.examAnswers[questionIndex] = Number(input.value);
-      });
+          state.examAnswers[
+            questionIndex
+          ] = Number(
+            input.value,
+          );
+        },
+      );
     });
 }
 
 function formatTime(seconds) {
-  const minutes = Math.floor(seconds / 60);
-  const remainder = seconds % 60;
+  const minutes =
+    Math.floor(seconds / 60);
 
-  return `${String(minutes).padStart(2, "0")}:${String(
-    remainder,
-  ).padStart(2, "0")}`;
+  const remainder =
+    seconds % 60;
+
+  return `${String(minutes).padStart(
+    2,
+    "0",
+  )}:${String(remainder).padStart(
+    2,
+    "0",
+  )}`;
 }
 
 function updateTimer() {
-  const elapsed = Math.floor(
-    (Date.now() - state.examStartedAt) / 1000,
-  );
+  const elapsed =
+    Math.floor(
+      (Date.now() -
+        state.examStartedAt) /
+        1000,
+    );
 
-  const remaining = Math.max(
-    0,
-    EXAM_TIME_SECONDS - elapsed,
-  );
+  const remaining =
+    Math.max(
+      0,
+      EXAM_TIME_SECONDS -
+        elapsed,
+    );
 
-  $("#timer").textContent = formatTime(remaining);
+  $("#timer").textContent =
+    formatTime(remaining);
 
   $("#timer").classList.toggle(
     "warning",
@@ -374,273 +575,260 @@ function startExam() {
   buildExam();
   renderExam();
 
-  state.examStartedAt = Date.now();
+  state.examStartedAt =
+    Date.now();
 
-  clearInterval(state.examTimerId);
-
-  state.examTimerId = setInterval(
-    updateTimer,
-    1000,
+  clearInterval(
+    state.examTimerId,
   );
+
+  state.examTimerId =
+    setInterval(
+      updateTimer,
+      1000,
+    );
 
   updateTimer();
 
   showView("exam");
 }
 
-function submitExam(autoSubmitted = false) {
-  if (!state.examQuestions.length) return;
+function submitExam(
+  autoSubmitted = false,
+) {
+  if (
+    !state.examQuestions.length
+  ) {
+    return;
+  }
 
-  clearInterval(state.examTimerId);
+  clearInterval(
+    state.examTimerId,
+  );
+
   state.examTimerId = null;
 
   let score = 0;
 
-  const details = state.examQuestions.map(
-    (question, index) => {
-      const correct = correctAnswers(question);
+  const details =
+    state.examQuestions.map(
+      (question, index) => {
+        const correct =
+          correctAnswers(
+            question,
+          );
 
-      const correctIndexes = (question.answers || [])
-        .map((answer, answerIndex) =>
-          answer.correct ? answerIndex : -1,
-        )
-        .filter(
-          (answerIndex) => answerIndex >= 0,
-        );
+        const correctIndexes =
+          (question.answers || [])
+            .map(
+              (
+                answer,
+                answerIndex,
+              ) =>
+                answer.correct
+                  ? answerIndex
+                  : -1,
+            )
+            .filter(
+              (answerIndex) =>
+                answerIndex >= 0,
+            );
 
-      const isCorrect = correctIndexes.includes(
-        state.examAnswers[index],
-      );
+        const isCorrect =
+          correctIndexes.includes(
+            state.examAnswers[
+              index
+            ],
+          );
 
-      if (isCorrect) score += 1;
+        if (isCorrect) {
+          score += 1;
+        }
 
-      return {
-        question,
-        index,
-        isCorrect,
-        correct,
-        selected: state.examAnswers[index],
-      };
-    },
-  );
+        return {
+          question,
+          index,
+          isCorrect,
+          correct,
+          selected:
+            state.examAnswers[
+              index
+            ],
+        };
+      },
+    );
 
-  const passed = score >= PASSING_SCORE;
+  const passed =
+    score >= PASSING_SCORE;
 
-  $("#resultScore").textContent = `${score} / 33`;
+  $("#resultScore").textContent =
+    `${score} / 33`;
 
-  $("#resultTitle").textContent = passed
-    ? "Bestanden"
-    : "Noch nicht bestanden";
+  $("#resultTitle").textContent =
+    passed
+      ? "Bestanden"
+      : "Noch nicht bestanden";
 
-  $("#resultText").textContent = autoSubmitted
-    ? `Die 60 Minuten sind abgelaufen. ${score} richtige Antworten — erforderlich sind mindestens ${PASSING_SCORE}.`
-    : `${score} richtige Antworten. Zum Bestehen brauchst du mindestens ${PASSING_SCORE}.`;
+  $("#resultText").textContent =
+    autoSubmitted
+      ? `Die 60 Minuten sind abgelaufen. ${score} richtige Antworten — erforderlich sind mindestens ${PASSING_SCORE}.`
+      : `${score} richtige Antworten. Zum Bestehen brauchst du mindestens ${PASSING_SCORE}.`;
 
-  $("#resultDetails").innerHTML = details
-    .map((item) => {
-      const selectedText =
-        item.selected == null
-          ? "Keine Antwort ausgewählt."
-          : item.question.answers[item.selected]?.text ||
-            "Unbekannte Antwort.";
+  $("#resultDetails").innerHTML =
+    details
+      .map((item) => {
+        const selectedText =
+          item.selected == null
+            ? "Keine Antwort ausgewählt."
+            : item.question.answers[
+                item.selected
+              ]?.text ||
+              "Unbekannte Antwort.";
 
-      const correctText =
-        item.correct
-          .map((answer) => answer.text)
-          .join(" · ") ||
-        "Keine richtige Antwort hinterlegt.";
+        const correctText =
+          item.correct
+            .map(
+              (answer) =>
+                answer.text,
+            )
+            .join(" · ") ||
+          "Keine richtige Antwort hinterlegt.";
 
-      return `
-        <div class="result-item ${
-          item.isCorrect ? "correct" : "wrong"
-        }">
-          <div class="result-index">
-            ${item.index + 1}
-          </div>
+        return `
+          <div
+            class="result-item ${
+              item.isCorrect
+                ? "correct"
+                : "wrong"
+            }"
+          >
+            <div class="result-index">
+              ${item.index + 1}
+            </div>
 
-          <div>
-            <p>
-              <strong>
+            <div>
+              <p>
+                <strong>
+                  ${escapeHtml(
+                    item.question
+                      .question_text ||
+                      item.question
+                        .image_text ||
+                      "Frage",
+                  )}
+                </strong>
+              </p>
+
+              <div class="result-answer">
+                Deine Antwort:
                 ${escapeHtml(
-                  item.question.question_text ||
-                    item.question.image_text ||
-                    "Frage",
+                  selectedText,
                 )}
-              </strong>
-            </p>
+                <br>
 
-            <div class="result-answer">
-              Deine Antwort:
-              ${escapeHtml(selectedText)}
-              <br>
-              Richtig:
-              ${escapeHtml(correctText)}
+                Richtig:
+                ${escapeHtml(
+                  correctText,
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      `;
-    })
-    .join("");
+        `;
+      })
+      .join("");
 
   showView("result");
 }
 
 /**
- * Determine the GitHub repository from GitHub Pages URL.
+ * Load release data from the same GitHub Pages origin.
  *
- * Example:
- * https://DenisAlekseev-AI-Projects.github.io/ebt/
+ * The GitHub Actions workflow downloads the assets from
+ * the GitHub Release and places them into the temporary
+ * Pages deployment artifact.
  *
- * becomes:
- * DenisAlekseev-AI-Projects/ebt
- */
-function getGitHubRepository() {
-  const hostname = window.location.hostname;
-
-  if (!hostname.endsWith(".github.io")) {
-    throw new Error(
-      "GitHub repository could not be determined. The application must run from GitHub Pages.",
-    );
-  }
-
-  const owner = hostname.replace(".github.io", "");
-
-  const pathParts = window.location.pathname
-    .split("/")
-    .filter(Boolean);
-
-  const repo = pathParts[0];
-
-  if (!owner || !repo) {
-    throw new Error(
-      "Could not determine the GitHub repository from the Pages URL.",
-    );
-  }
-
-  return {
-    owner,
-    repo,
-  };
-}
-
-/**
- * Load the latest GitHub Release and its assets.
+ * Therefore the browser now makes SAME-ORIGIN requests:
  *
- * IMPORTANT:
- * We intentionally use asset.url (GitHub REST API)
- * instead of asset.browser_download_url.
+ *   /ebt/data/bamf_questions.json
+ *   /ebt/data/bamf_images.zip
  *
- * browser_download_url redirects to GitHub's asset CDN,
- * which can cause a CORS failure in browser fetch().
- *
- * The REST API asset endpoint supports:
- *
- *   Accept: application/octet-stream
- *
- * and is the appropriate API endpoint for downloading
- * release assets.
+ * No CORS request to github.com is made by the browser.
  */
 async function loadLatestRelease() {
-  const { owner, repo } = getGitHubRepository();
-
-  const repositoryApiUrl =
-    `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
-
   /*
-   * Step 1:
-   * Get the latest release metadata.
+   * release.json is generated by GitHub Actions from
+   * the currently deployed GitHub Release.
    */
-  const releaseResponse = await fetch(
-    `${repositoryApiUrl}/releases/latest`,
-    {
-      headers: {
-        Accept: "application/vnd.github+json",
+  const releaseResponse =
+    await fetch(
+      "./data/release.json",
+      {
+        cache: "no-store",
       },
-    },
-  );
+    );
 
   if (!releaseResponse.ok) {
     throw new Error(
-      `GitHub release API returned HTTP ${releaseResponse.status}.`,
+      `Could not load release metadata: HTTP ${releaseResponse.status}.`,
     );
   }
 
-  const release = await releaseResponse.json();
+  const release =
+    await releaseResponse.json();
 
   /*
-   * Step 2:
-   * Find the two assets attached to the release.
+   * Use the release tag as a cache-busting parameter.
+   *
+   * This is useful when a new release is deployed to
+   * the same Pages URL.
    */
-  const jsonAsset = release.assets?.find(
-    (asset) => asset.name === DATA_FILENAME,
+  const version = encodeURIComponent(
+    release.tagName ||
+      release.name ||
+      Date.now(),
   );
 
-  const imagesAsset = release.assets?.find(
-    (asset) => asset.name === IMAGES_FILENAME,
-  );
+  const questionsUrl =
+    `./data/${DATA_FILENAME}?release=${version}`;
 
-  if (!jsonAsset) {
-    throw new Error(
-      `The latest release is missing ${DATA_FILENAME}.`,
-    );
-  }
-
-  if (!imagesAsset) {
-    throw new Error(
-      `The latest release is missing ${IMAGES_FILENAME}.`,
-    );
-  }
+  const imagesUrl =
+    `./data/${IMAGES_FILENAME}?release=${version}`;
 
   /*
-   * Step 3:
-   * Download the assets through the GitHub API.
-   *
-   * DO NOT use:
-   *
-   *   asset.browser_download_url
-   *
-   * Use:
-   *
-   *   asset.url
-   *
-   * instead.
+   * Both requests are SAME ORIGIN.
    */
-  const [questionsResponse, imagesResponse] =
-    await Promise.all([
-      fetch(jsonAsset.url, {
-        headers: {
-          Accept: "application/octet-stream",
-        },
-      }),
+  const [
+    questionsResponse,
+    imagesResponse,
+  ] = await Promise.all([
+    fetch(questionsUrl, {
+      cache: "no-store",
+    }),
 
-      fetch(imagesAsset.url, {
-        headers: {
-          Accept: "application/octet-stream",
-        },
-      }),
-    ]);
+    fetch(imagesUrl, {
+      cache: "no-store",
+    }),
+  ]);
 
   if (!questionsResponse.ok) {
     throw new Error(
-      `Could not download ${DATA_FILENAME}: HTTP ${questionsResponse.status}.`,
+      `Could not load ${DATA_FILENAME}: HTTP ${questionsResponse.status}.`,
     );
   }
 
   if (!imagesResponse.ok) {
     throw new Error(
-      `Could not download ${IMAGES_FILENAME}: HTTP ${imagesResponse.status}.`,
+      `Could not load ${IMAGES_FILENAME}: HTTP ${imagesResponse.status}.`,
     );
   }
 
-  /*
-   * Step 4:
-   * Convert the downloaded assets.
-   */
-  const [questions, imageBytes] =
-    await Promise.all([
-      questionsResponse.json(),
-      imagesResponse.arrayBuffer(),
-    ]);
+  const [
+    questions,
+    imageBytes,
+  ] = await Promise.all([
+    questionsResponse.json(),
+    imagesResponse.arrayBuffer(),
+  ]);
 
   return {
     release,
@@ -650,15 +838,22 @@ async function loadLatestRelease() {
 }
 
 function loadImages(zipBytes) {
-  const files = unzipSync(
-    new Uint8Array(zipBytes),
-  );
+  const files =
+    unzipSync(
+      new Uint8Array(
+        zipBytes,
+      ),
+    );
 
-  for (const [name, bytes] of Object.entries(files)) {
-    const extension = name
-      .toLowerCase()
-      .split(".")
-      .pop();
+  for (const [
+    name,
+    bytes,
+  ] of Object.entries(files)) {
+    const extension =
+      name
+        .toLowerCase()
+        .split(".")
+        .pop();
 
     const mime = {
       jpg: "image/jpeg",
@@ -670,15 +865,23 @@ function loadImages(zipBytes) {
       tif: "image/tiff",
       tiff: "image/tiff",
       svg: "image/svg+xml",
-    }[extension] || "application/octet-stream";
+    }[extension] ||
+      "application/octet-stream";
 
-    const url = URL.createObjectURL(
-      new Blob([bytes], {
-        type: mime,
-      }),
+    const url =
+      URL.createObjectURL(
+        new Blob(
+          [bytes],
+          {
+            type: mime,
+          },
+        ),
+      );
+
+    state.imageUrls.set(
+      name,
+      url,
     );
-
-    state.imageUrls.set(name, url);
   }
 }
 
@@ -688,25 +891,33 @@ function populateStates() {
       state.allQuestions
         .filter(
           (question) =>
-            question.scope === "state" &&
+            question.scope ===
+              "state" &&
             question.state,
         )
-        .map((question) => question.state),
+        .map(
+          (question) =>
+            question.state,
+        ),
     ),
   ];
 
   state.states = names;
 
-  $("#stateSelect").innerHTML = names
-    .map(
-      (name) =>
-        `<option value="${escapeHtml(name)}">${escapeHtml(
-          name,
-        )}</option>`,
-    )
-    .join("");
+  $("#stateSelect").innerHTML =
+    names
+      .map(
+        (name) =>
+          `<option value="${escapeHtml(
+            name,
+          )}">${escapeHtml(
+            name,
+          )}</option>`,
+      )
+      .join("");
 
-  state.selectedState = names[0] || "";
+  state.selectedState =
+    names[0] || "";
 
   $("#stateSelect").value =
     state.selectedState;
@@ -738,9 +949,9 @@ async function init() {
     populateStates();
 
     const published =
-      loaded.release.published_at
+      loaded.release.publishedAt
         ? new Date(
-            loaded.release.published_at,
+            loaded.release.publishedAt,
           ).toLocaleDateString(
             "de-DE",
           )
@@ -749,7 +960,9 @@ async function init() {
     $("#releaseBadge").textContent =
       `Datenstand ${
         published ||
-        loaded.release.tag_name
+        loaded.release.tagName ||
+        loaded.release.name ||
+        ""
       }`;
 
     showView("home");
@@ -771,13 +984,18 @@ document.addEventListener(
         "[data-action]",
       )?.dataset.action;
 
-    if (!action) return;
+    if (!action) {
+      return;
+    }
 
     try {
       if (action === "home") {
         clearInterval(
           state.examTimerId,
         );
+
+        state.examTimerId =
+          null;
 
         showView("home");
       } else if (
@@ -811,7 +1029,9 @@ document.addEventListener(
 $("#studyPrev").addEventListener(
   "click",
   () => {
-    if (state.studyIndex > 0) {
+    if (
+      state.studyIndex > 0
+    ) {
       state.studyIndex -= 1;
       renderStudy();
     }
@@ -823,7 +1043,9 @@ $("#studyNext").addEventListener(
   () => {
     if (
       state.studyIndex <
-      state.studyQuestions.length - 1
+      state.studyQuestions
+        .length -
+        1
     ) {
       state.studyIndex += 1;
       renderStudy();
@@ -835,7 +1057,8 @@ $("#studyNext").addEventListener(
 
 $("#submitExam").addEventListener(
   "click",
-  () => submitExam(false),
+  () =>
+    submitExam(false),
 );
 
 $("#examForm").addEventListener(
