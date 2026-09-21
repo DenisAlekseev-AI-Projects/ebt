@@ -3,6 +3,7 @@ name: Deploy GitHub Pages
 on:
   release:
     types: [published]
+
   push:
     branches:
       - main
@@ -35,13 +36,23 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           if [ "${{ github.event_name }}" = "release" ]; then
-            echo "RELEASE_TAG=${{ github.event.release.tag_name }}" >> "$GITHUB_ENV"
+            RELEASE_TAG="${{ github.event.release.tag_name }}"
           else
-            RELEASE_TAG="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq '.tagName')"
-            echo "RELEASE_TAG=$RELEASE_TAG" >> "$GITHUB_ENV"
+            RELEASE_TAG="$(gh release view \
+              --repo "$GITHUB_REPOSITORY" \
+              --json tagName \
+              --jq '.tagName')"
           fi
 
-      - name: Download latest release assets
+          if [ -z "$RELEASE_TAG" ]; then
+            echo "Could not determine the latest release."
+            exit 1
+          fi
+
+          echo "Using release: $RELEASE_TAG"
+          echo "RELEASE_TAG=$RELEASE_TAG" >> "$GITHUB_ENV"
+
+      - name: Download release assets
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -75,16 +86,11 @@ jobs:
 
       - name: Prepare website
         run: |
-          cp index.html site/index.html
-          cp app.js site/app.js
+          echo "Copying website from docs/"
 
-          if [ -f style.css ]; then
-            cp style.css site/style.css
-          fi
-
-          if [ -f styles.css ]; then
-            cp styles.css site/styles.css
-          fi
+          cp docs/index.html site/index.html
+          cp docs/app.js site/app.js
+          cp docs/styles.css site/styles.css
 
           touch site/.nojekyll
 
