@@ -2,13 +2,12 @@ name: Update BAMF data
 
 on:
   schedule:
-    # The workflow checks daily, but the scraper runs only when the latest
-    # data release is at least 14 days old.
     - cron: "17 3 1 * *"
+
   workflow_dispatch:
     inputs:
       force:
-        description: "Run the scraper"
+        description: "Run the scraper even if the 14-day interval has not elapsed"
         required: false
         default: false
         type: boolean
@@ -19,13 +18,21 @@ permissions:
 jobs:
   update:
     runs-on: ubuntu-latest
+
     env:
       PYTHONUNBUFFERED: "1"
       BAMF_OCR: "1"
       BAMF_TEXT_ONLY_ACTION: "delete"
+
     steps:
       - name: Check out parser and Pages source
         uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
 
       - name: Decide whether the biweekly run is due
         id: gate
@@ -35,31 +42,95 @@ jobs:
           if python scripts/should_run.py \
               ${{ inputs.force == true && '--force' || '' }}; then
             echo "due=true" >> "$GITHUB_OUTPUT"
+            echo "BAMF data update is due."
           else
             echo "due=false" >> "$GITHUB_OUTPUT"
+            echo "BAMF data update is not due yet."
           fi
 
-      - name: Set up Python
-        if: steps.gate.outputs.due == 'true'
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-
-      - name: Install Tesseract and German OCR model
+      - name: Install Tesseract OCR
         if: steps.gate.outputs.due == 'true'
         run: |
           sudo apt-get update
-          sudo apt-get install -y tesseract-ocr tesseract-ocr-deu
+          sudo apt-get install -y \
+            tesseract-ocr \
+            tesseract-ocr-deu
+
+          echo "Tesseract version:"
+          tesseract --version
+
+          echo
+          echo "Installed Tesseract languages:"
+          tesseract --list-langs
+
+      - name: Prepare German OCR model
+        if: steps.gate.outputs.due == 'true'
+        run: |
+          set -e
+
+          mkdir -p tessdata
+
+          DEU_FILE="$(find /usr/share/tesseract-ocr \
+            -type f \
+            -name 'deu.traineddata' \
+            -print \
+            -quit)"
+
+          if [ -z "$DEU_FILE" ]; then
+            echo "ERROR: deu.traineddata was not found."
+            echo
+            echo "Searching the filesystem for debugging:"
+            find /usr/share -name 'deu.traineddata' -print || true
+            exit 1
+          fi
+
+          echo "Found German OCR model:"
+          echo "$DEU_FILE"
+
+          cp "$DEU_FILE" tessdata/deu.traineddata
+
+          echo
+          echo "Local tessdata directory:"
+          ls -lah tessdata
+
+          test -f tessdata/deu.traineddata
+
+      - name: Verify German OCR model
+        if: steps.gate.outputs.due == 'true'
+        env:
+          TESSDATA_PREFIX: ${{ github.workspace }}/tessdata
+        run: |
+          set -e
+
+          echo "TESSDATA_PREFIX=$TESSDATA_PREFIX"
+
+          test -f "$TESSDATA_PREFIX/deu.traineddata"
+
+          echo
+          echo "Testing German OCR:"
+          tesseract --list-langs
+
+          echo
+          echo "German OCR model is ready."
 
       - name: Install Python dependencies
         if: steps.gate.outputs.due == 'true'
-        run: python -m pip install -r requirements.txt
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
 
       - name: Run scraper and OCR
         if: steps.gate.outputs.due == 'true'
+        env:
+          TESSDATA_PREFIX: ${{ github.workspace }}/tessdata
         run: |
+          set -e
+
           mkdir -p build/work
+
+          echo "Running BAMF scraper..."
+          echo "TESSDATA_PREFIX=$TESSDATA_PREFIX"
+
           cd build/work
           python ../../scraper.py
 
@@ -89,4 +160,11 @@ jobs:
 
       - name: Report unchanged data
         if: steps.gate.outputs.due == 'true' && steps.release.outputs.changed != 'true'
-        run: echo "No data changes detected; no release was created."
+        run: |
+          echo "No data changes detected; no release was created."
+
+      - name: Report skipped run
+        if: steps.gate.outputs.due != 'true'
+        run: |
+          echo "The 14-day update interval has not elapsed."
+          echo "No scraping was performed."
