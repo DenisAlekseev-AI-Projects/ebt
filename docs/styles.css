@@ -176,14 +176,39 @@ select {
   font-size: clamp(22px, 4vw, 31px);
   line-height: 1.22;
 }
-.question-image {
+.image-zoom {
+  position: relative;
   display: block;
   width: min(100%, 720px);
+  margin: 0 auto 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 14px;
+  background: none;
+  cursor: zoom-in;
+  -webkit-tap-highlight-color: transparent;
+}
+.image-zoom:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.question-image {
+  display: block;
+  width: 100%;
   max-height: 430px;
   object-fit: contain;
-  margin: 0 auto 22px;
   border-radius: 14px;
   background: #f7f8fa;
+}
+.zoom-hint {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: rgba(17, 24, 39, .72);
+  font-size: 16px;
+  pointer-events: none;
 }
 .answers { display: grid; gap: 10px; }
 .answer {
@@ -194,17 +219,11 @@ select {
   border: 1px solid var(--line);
   border-radius: 14px;
 }
+.answer { cursor: pointer; }
 .answer input { margin-top: 4px; }
 .answer.correct { border-color: #9ad7bf; background: #effaf5; }
 .answer.wrong { border-color: #e7a4ac; background: #fff4f5; }
-.answer .answer-letter { font-weight: 800; color: var(--muted); }
-.explanation {
-  margin-top: 18px;
-  padding: 14px 16px;
-  border-radius: 14px;
-  background: var(--surface-soft);
-  color: var(--muted);
-}
+.answers.locked .answer { cursor: default; }
 
 .study-nav, .exam-actions, .result-actions {
   display: flex;
@@ -293,6 +312,44 @@ select {
   padding: 30px;
 }
 .error-panel p { max-width: 700px; color: var(--muted); }
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  background: rgba(10, 15, 25, .88);
+  cursor: zoom-out;
+  overscroll-behavior: contain;
+}
+.lightbox[hidden] { display: none; }
+.lightbox-image {
+  display: block;
+  max-width: none;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .45);
+}
+.lightbox-close {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 14px);
+  right: 14px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .16);
+  color: #fff;
+  font-size: 20px;
+  line-height: 1;
+}
+.lightbox-close:hover, .lightbox-close:focus-visible { background: rgba(255, 255, 255, .3); outline: none; }
+body.lightbox-open { overflow: hidden; }
 
 footer {
   padding: 24px 16px 36px;

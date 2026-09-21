@@ -34,6 +34,15 @@ Questions are sampled without replacement inside each pool and the final 33-ques
 
 The exam has a 60-minute timer and requires at least 17 correct answers.
 
+## Illustrations
+
+Questions may be images that contain text plus an illustration. The OCR step
+stores `illustration_bbox` (`[x0, y0, x1, y1]` in pixels of the original image)
+for those images. The Pages application crops the image to this box in the
+browser (with a few pixels of padding), so only the illustration is shown; the
+original files stay untouched in `bamf_images.zip`. Clicking an image opens it
+enlarged.
+
 ## GitHub setup
 
 1. Push the repository to GitHub.

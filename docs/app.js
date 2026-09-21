@@ -5,17 +5,27 @@ const IMAGES_FILENAME = "bamf_images.zip";
 const EXAM_TIME_SECONDS = 60 * 60;
 const PASSING_SCORE = 17;
 
+// Extra source pixels kept around illustration_bbox when cropping, so that
+// anti-aliased edges of the illustration are not cut off.
+const CROP_PADDING_PX = 6;
+const CROP_BATCH_SIZE = 8;
+
+// Upper bound for upscaling small illustrations in the full-screen viewer.
+const LIGHTBOX_MAX_ZOOM = 3;
+
 const state = {
   allQuestions: [],
   states: [],
   selectedState: "",
   studyQuestions: [],
   studyIndex: 0,
+  studyAnswers: new Map(),
   examQuestions: [],
   examAnswers: [],
   examStartedAt: 0,
   examTimerId: null,
   imageUrls: new Map(),
+  croppedUrls: new Map(),
   release: null,
 };
 
@@ -55,22 +65,6 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
-function questionSection(question) {
-  if (question.scope === "state") {
-    return "Landesfragen";
-  }
-
-  if (question.number <= 150) {
-    return "Leben in der Demokratie";
-  }
-
-  if (question.number <= 240) {
-    return "Geschichte und Verantwortung";
-  }
-
-  return "Mensch und Gesellschaft";
-}
-
 function questionImage(question) {
   const image = (question.images || []).find(
     (entry) =>
@@ -82,17 +76,26 @@ function questionImage(question) {
     return "";
   }
 
-  const src = state.imageUrls.get(
-    image.file,
-  );
+  // Prefer the version cropped to the illustration; fall back to the
+  // original file if the crop is missing or failed.
+  const src =
+    state.croppedUrls.get(image.file) ||
+    state.imageUrls.get(image.file);
 
   return `
-    <img
-      class="question-image"
-      src="${src}"
-      alt=""
-      loading="lazy"
+    <button
+      type="button"
+      class="image-zoom"
+      aria-label="Bild vergrößern"
     >
+      <img
+        class="question-image"
+        src="${src}"
+        alt=""
+        loading="lazy"
+      >
+      <span class="zoom-hint" aria-hidden="true">🔍</span>
+    </button>
   `;
 }
 
@@ -102,63 +105,20 @@ function correctAnswers(question) {
   );
 }
 
-function renderAnswerList(
-  question,
-  {
-    interactive = false,
-    reveal = false,
-    selected = null,
-  } = {},
-) {
+function renderAnswerList(question) {
   return (question.answers || [])
-    .map((answer, index) => {
-      const checked =
-        selected === index
-          ? "checked"
-          : "";
-
-      const isCorrect =
-        Boolean(answer.correct);
-
-      const classNames = [
-        "answer",
-        reveal && isCorrect
-          ? "correct"
-          : "",
-        reveal &&
-        selected === index &&
-        !isCorrect
-          ? "wrong"
-          : "",
-      ]
-        .filter(Boolean)
-        .join(" ");
-
-      return `
-        <label class="${classNames}">
-          ${
-            interactive
-              ? `
-                <input
-                  type="radio"
-                  name="answer"
-                  value="${index}"
-                  ${checked}
-                >
-              `
-              : ""
-          }
-
-          <span class="answer-letter">
-            ${String.fromCharCode(65 + index)}
-          </span>
-
-          <span>
-            ${escapeHtml(answer.text)}
-          </span>
+    .map(
+      (answer, index) => `
+        <label class="answer">
+          <input
+            type="radio"
+            name="answer"
+            value="${index}"
+          >
+          <span>${escapeHtml(answer.text)}</span>
         </label>
-      `;
-    })
+      `,
+    )
     .join("");
 }
 
@@ -190,35 +150,39 @@ function progressBar(current, total) {
   `;
 }
 
+/**
+ * Show the result of an answered study question and lock the answers:
+ * the chosen option is marked red if wrong, the correct one green,
+ * and no option can be picked again.
+ */
+function applyStudyAnswer(question, selected) {
+  const card = $("#studyCard");
+
+  card.querySelector(".answers").classList.add("locked");
+
+  card.querySelectorAll(".answer").forEach((label, index) => {
+    const isCorrect = Boolean(question.answers[index]?.correct);
+    const input = label.querySelector("input");
+
+    label.classList.toggle("correct", isCorrect);
+    label.classList.toggle("wrong", index === selected && !isCorrect);
+
+    input.checked = index === selected;
+    input.disabled = true;
+  });
+}
+
 function renderStudy() {
-  const question =
-    state.studyQuestions[
-      state.studyIndex
-    ];
+  const question = state.studyQuestions[state.studyIndex];
+  const total = state.studyQuestions.length;
 
-  const total =
-    state.studyQuestions.length;
+  $("#studyTitle").textContent = `${state.selectedState} · 310 Fragen`;
 
-  $("#studyTitle").textContent =
-    `${state.selectedState} · 310 Fragen`;
-
-  $("#studyProgress").innerHTML =
-    progressBar(
-      state.studyIndex,
-      total,
-    );
+  $("#studyProgress").innerHTML = progressBar(state.studyIndex, total);
 
   $("#studyCard").innerHTML = `
     <div class="question-meta">
-      <span>
-        Frage ${question.number} von 310
-      </span>
-
-      <span>
-        ${escapeHtml(
-          questionSection(question),
-        )}
-      </span>
+      <span>Frage ${question.number} von 310</span>
     </div>
 
     ${questionImage(question)}
@@ -232,84 +196,34 @@ function renderStudy() {
     </h3>
 
     <div class="answers">
-      ${renderAnswerList(
-        question,
-        {
-          interactive: true,
-        },
-      )}
-    </div>
-
-    <div
-      id="studyExplanation"
-      class="explanation"
-      hidden
-    >
-      <strong>
-        Richtige Antwort:
-      </strong>
-
-      ${
-        correctAnswers(question)
-          .map((answer) =>
-            escapeHtml(answer.text),
-          )
-          .join(" · ") ||
-        "Keine Antwort markiert."
-      }
+      ${renderAnswerList(question)}
     </div>
   `;
 
-  const inputs =
-    $("#studyCard").querySelectorAll(
-      'input[name="answer"]',
-    );
+  // Coming back to an already answered question keeps it locked.
+  if (state.studyAnswers.has(question.number)) {
+    applyStudyAnswer(question, state.studyAnswers.get(question.number));
+  } else {
+    $("#studyCard")
+      .querySelectorAll('input[name="answer"]')
+      .forEach((input) => {
+        input.addEventListener("change", () => {
+          if (state.studyAnswers.has(question.number)) {
+            return;
+          }
 
-  inputs.forEach((input) => {
-    input.addEventListener(
-      "change",
-      () => {
-        const selected =
-          Number(input.value);
+          const selected = Number(input.value);
 
-        $("#studyCard")
-          .querySelectorAll(".answer")
-          .forEach(
-            (label, index) => {
-              label.classList.toggle(
-                "correct",
-                Boolean(
-                  question.answers[
-                    index
-                  ]?.correct,
-                ),
-              );
+          state.studyAnswers.set(question.number, selected);
+          applyStudyAnswer(question, selected);
+        });
+      });
+  }
 
-              label.classList.toggle(
-                "wrong",
-                index ===
-                  selected &&
-                !question.answers[
-                  index
-                ]?.correct,
-              );
-            },
-          );
-
-        $(
-          "#studyExplanation",
-        ).hidden = false;
-      },
-    );
-  });
-
-  $("#studyPrev").disabled =
-    state.studyIndex === 0;
+  $("#studyPrev").disabled = state.studyIndex === 0;
 
   $("#studyNext").textContent =
-    state.studyIndex === total - 1
-      ? "Fertig ✓"
-      : "Weiter →";
+    state.studyIndex === total - 1 ? "Fertig ✓" : "Weiter →";
 }
 
 function startStudy(reset = true) {
@@ -351,6 +265,7 @@ function startStudy(reset = true) {
     }
 
     state.studyIndex = 0;
+    state.studyAnswers.clear();
   }
 
   showView("study");
@@ -436,14 +351,6 @@ function renderExam() {
               <span>
                 Frage ${index + 1} von 33
               </span>
-
-              <span>
-                ${escapeHtml(
-                  questionSection(
-                    question,
-                  ),
-                )}
-              </span>
             </div>
 
             ${questionImage(question)}
@@ -478,13 +385,6 @@ function renderExam() {
                             : ""
                         }
                       >
-
-                      <span class="answer-letter">
-                        ${String.fromCharCode(
-                          65 +
-                            answerIndex,
-                        )}
-                      </span>
 
                       <span>
                         ${escapeHtml(
@@ -885,6 +785,112 @@ function loadImages(zipBytes) {
   }
 }
 
+/**
+ * illustration_bbox is written by the OCR step of scraper.py as
+ * [x0, y0, x1, y1] in pixels of the original image. It is only set for
+ * "text_and_illustration" images; for "illustration_only" images the
+ * whole file is the illustration and no crop is needed.
+ */
+function validBbox(bbox) {
+  return (
+    Array.isArray(bbox) &&
+    bbox.length === 4 &&
+    bbox.every(Number.isFinite) &&
+    bbox[2] > bbox[0] &&
+    bbox[3] > bbox[1]
+  );
+}
+
+function loadHtmlImage(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(`Could not decode image: ${url}`));
+    img.src = url;
+  });
+}
+
+async function cropToIllustration(entry) {
+  const sourceUrl = state.imageUrls.get(entry.file);
+  const img = await loadHtmlImage(sourceUrl);
+
+  // Coordinates refer to image_size; rescale in case the delivered file
+  // has different dimensions.
+  const [refWidth, refHeight] =
+    Array.isArray(entry.image_size) && entry.image_size.length === 2
+      ? entry.image_size
+      : [img.naturalWidth, img.naturalHeight];
+
+  const scaleX = img.naturalWidth / refWidth;
+  const scaleY = img.naturalHeight / refHeight;
+
+  const [bx0, by0, bx1, by1] = entry.illustration_bbox;
+
+  const x0 = Math.max(0, Math.floor(bx0 * scaleX) - CROP_PADDING_PX);
+  const y0 = Math.max(0, Math.floor(by0 * scaleY) - CROP_PADDING_PX);
+  const x1 = Math.min(img.naturalWidth, Math.ceil(bx1 * scaleX) + CROP_PADDING_PX);
+  const y1 = Math.min(img.naturalHeight, Math.ceil(by1 * scaleY) + CROP_PADDING_PX);
+
+  const width = x1 - x0;
+  const height = y1 - y0;
+
+  if (width <= 0 || height <= 0) {
+    throw new Error(`Empty crop area for ${entry.file}`);
+  }
+
+  const canvas = document.createElement("canvas");
+
+  canvas.width = width;
+  canvas.height = height;
+
+  canvas
+    .getContext("2d")
+    .drawImage(img, x0, y0, width, height, 0, 0, width, height);
+
+  const blob = await new Promise((resolve) =>
+    canvas.toBlob(resolve, "image/png"),
+  );
+
+  if (!blob) {
+    throw new Error(`Could not encode cropped image for ${entry.file}`);
+  }
+
+  return URL.createObjectURL(blob);
+}
+
+async function cropIllustrations() {
+  const entries = new Map();
+
+  for (const question of state.allQuestions) {
+    for (const entry of question.images || []) {
+      if (
+        entry.file &&
+        state.imageUrls.has(entry.file) &&
+        validBbox(entry.illustration_bbox)
+      ) {
+        entries.set(entry.file, entry);
+      }
+    }
+  }
+
+  const pending = [...entries.values()];
+
+  // Small batches keep memory and main-thread load reasonable.
+  for (let i = 0; i < pending.length; i += CROP_BATCH_SIZE) {
+    await Promise.all(
+      pending.slice(i, i + CROP_BATCH_SIZE).map(async (entry) => {
+        try {
+          state.croppedUrls.set(entry.file, await cropToIllustration(entry));
+        } catch (error) {
+          // Keep the original image if cropping fails.
+          console.warn(error);
+        }
+      }),
+    );
+  }
+}
+
 function populateStates() {
   const names = [
     ...new Set(
@@ -945,6 +951,8 @@ async function init() {
     loadImages(
       loaded.imageBytes,
     );
+
+    await cropIllustrations();
 
     populateStates();
 
@@ -1068,5 +1076,108 @@ $("#examForm").addEventListener(
     submitExam(false);
   },
 );
+
+// ------------------------------------------------------------
+// Full-screen image viewer
+// ------------------------------------------------------------
+
+const lightbox = {
+  root: $("#lightbox"),
+  image: $("#lightboxImage"),
+  closeButton: $("#lightboxClose"),
+  opener: null,
+};
+
+function isLightboxOpen() {
+  return !lightbox.root.hidden;
+}
+
+// Scale the image to fill the viewport (small illustrations are enlarged,
+// large ones are shrunk) while keeping the aspect ratio.
+function fitLightboxImage() {
+  const { image } = lightbox;
+
+  if (!image.naturalWidth || !image.naturalHeight) {
+    return;
+  }
+
+  const scale = Math.min(
+    (window.innerWidth * 0.94) / image.naturalWidth,
+    (window.innerHeight * 0.84) / image.naturalHeight,
+    LIGHTBOX_MAX_ZOOM,
+  );
+
+  image.style.width = `${Math.round(image.naturalWidth * scale)}px`;
+  image.style.height = `${Math.round(image.naturalHeight * scale)}px`;
+}
+
+function openLightbox(src, opener) {
+  lightbox.opener = opener;
+
+  lightbox.image.style.width = "";
+  lightbox.image.style.height = "";
+  lightbox.image.onload = fitLightboxImage;
+  lightbox.image.src = src;
+
+  lightbox.root.hidden = false;
+  document.body.classList.add("lightbox-open");
+
+  if (lightbox.image.complete) {
+    fitLightboxImage();
+  }
+
+  lightbox.closeButton.focus();
+}
+
+function closeLightbox() {
+  if (!isLightboxOpen()) {
+    return;
+  }
+
+  lightbox.root.hidden = true;
+  document.body.classList.remove("lightbox-open");
+
+  lightbox.image.onload = null;
+  lightbox.image.removeAttribute("src");
+
+  lightbox.opener?.focus();
+  lightbox.opener = null;
+}
+
+document.addEventListener("click", (event) => {
+  const trigger = event.target.closest(".image-zoom");
+
+  if (!trigger) {
+    return;
+  }
+
+  const img = trigger.querySelector("img");
+
+  if (img?.src) {
+    openLightbox(img.src, trigger);
+  }
+});
+
+// Any click on the overlay (backdrop, image or close button) closes it.
+lightbox.root.addEventListener("click", closeLightbox);
+
+document.addEventListener("keydown", (event) => {
+  if (!isLightboxOpen()) {
+    return;
+  }
+
+  if (event.key === "Escape") {
+    closeLightbox();
+  } else if (event.key === "Tab") {
+    // The close button is the only focusable element in the dialog.
+    event.preventDefault();
+  }
+});
+
+window.addEventListener("resize", () => {
+  if (isLightboxOpen()) {
+    fitLightboxImage();
+  }
+});
 
 init();
