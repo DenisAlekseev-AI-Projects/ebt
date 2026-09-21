@@ -1,0 +1,92 @@
+name: Update BAMF data
+
+on:
+  schedule:
+    # The workflow checks daily, but the scraper runs only when the latest
+    # data release is at least 14 days old.
+    - cron: "17 3 1 * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Run the scraper"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONUNBUFFERED: "1"
+      BAMF_OCR: "1"
+      BAMF_TEXT_ONLY_ACTION: "delete"
+    steps:
+      - name: Check out parser and Pages source
+        uses: actions/checkout@v4
+
+      - name: Decide whether the biweekly run is due
+        id: gate
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if python scripts/should_run.py \
+              ${{ inputs.force == true && '--force' || '' }}; then
+            echo "due=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "due=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Python
+        if: steps.gate.outputs.due == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Tesseract and German OCR model
+        if: steps.gate.outputs.due == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tesseract-ocr tesseract-ocr-deu
+
+      - name: Install Python dependencies
+        if: steps.gate.outputs.due == 'true'
+        run: python -m pip install -r requirements.txt
+
+      - name: Run scraper and OCR
+        if: steps.gate.outputs.due == 'true'
+        run: |
+          mkdir -p build/work
+          cd build/work
+          python ../../scraper.py
+
+      - name: Build release assets and compare with latest release
+        if: steps.gate.outputs.due == 'true'
+        id: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python scripts/prepare_release.py \
+            --workdir build/work \
+            --output build/release \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release
+        if: steps.gate.outputs.due == 'true' && steps.release.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.release.outputs.release_tag }}" \
+            build/release/bamf_questions.json \
+            build/release/bamf_questions.csv \
+            build/release/bamf_images.zip \
+            build/release/manifest.json \
+            --title "BAMF data ${{ steps.release.outputs.release_tag }}" \
+            --notes "Automated BAMF Einbürgerungstest data update. Includes JSON, CSV, and illustration archive."
+
+      - name: Report unchanged data
+        if: steps.gate.outputs.due == 'true' && steps.release.outputs.changed != 'true'
+        run: echo "No data changes detected; no release was created."

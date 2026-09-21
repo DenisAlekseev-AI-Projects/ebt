@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111827">
+  <title>Einbürgerungstest Trainer</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">✓</span>
+      <div>
+        <strong>Einbürgerungstest</strong>
+        <small>Fragen-Trainer</small>
+      </div>
+    </div>
+    <div id="releaseBadge" class="release-badge">Daten werden geladen …</div>
+  </header>
+
+  <main class="app-shell">
+    <section id="home" class="view active">
+      <div class="hero">
+        <p class="eyebrow">BAMF · 310 Fragen</p>
+        <h1>Bereit für den Einbürgerungstest?</h1>
+        <p class="hero-copy">
+          Lerne alle Fragen deines Bundeslandes der Reihe nach oder simuliere
+          eine Prüfung mit 33 zufällig ausgewählten Fragen.
+        </p>
+      </div>
+
+      <div class="mode-grid">
+        <button class="mode-card" data-action="study">
+          <span class="mode-icon">📚</span>
+          <span class="mode-title">Lernmodus</span>
+          <span class="mode-copy">310 Fragen in fester Reihenfolge, inklusive Landesfragen.</span>
+        </button>
+        <button class="mode-card" data-action="exam">
+          <span class="mode-icon">⏱</span>
+          <span class="mode-title">Prüfungsmodus</span>
+          <span class="mode-copy">33 Fragen, 60 Minuten, Bestehen ab 17 richtigen Antworten.</span>
+        </button>
+      </div>
+
+      <div class="state-picker card">
+        <div>
+          <span class="eyebrow">Bundesland</span>
+          <h2>Dein Bundesland</h2>
+        </div>
+        <select id="stateSelect" aria-label="Bundesland"></select>
+      </div>
+    </section>
+
+    <section id="study" class="view">
+      <div class="section-head">
+        <button class="ghost-button" data-action="home">← Start</button>
+        <div>
+          <span class="eyebrow">Lernmodus</span>
+          <h2 id="studyTitle">310 Fragen</h2>
+        </div>
+        <button class="ghost-button" data-action="study-reset">Neu starten</button>
+      </div>
+      <div id="studyProgress" class="progress-wrap"></div>
+      <article id="studyCard" class="question-card"></article>
+      <div class="study-nav">
+        <button id="studyPrev" class="secondary-button">← Zurück</button>
+        <button id="studyNext" class="primary-button">Weiter →</button>
+      </div>
+    </section>
+
+    <section id="exam" class="view">
+      <div class="section-head exam-head">
+        <div>
+          <span class="eyebrow">Prüfungsmodus</span>
+          <h2>33 Fragen</h2>
+        </div>
+        <div id="timer" class="timer" aria-live="polite">60:00</div>
+      </div>
+      <div id="examProgress" class="progress-wrap"></div>
+      <form id="examForm"></form>
+      <div class="exam-actions">
+        <button class="secondary-button" data-action="home">Abbrechen</button>
+        <button id="submitExam" class="primary-button">Prüfung abgeben</button>
+      </div>
+    </section>
+
+    <section id="result" class="view">
+      <div class="result-card">
+        <span class="eyebrow">Ergebnis</span>
+        <div id="resultScore" class="result-score">—</div>
+        <h2 id="resultTitle">Auswertung</h2>
+        <p id="resultText"></p>
+        <div class="result-actions">
+          <button class="secondary-button" data-action="home">Zur Startseite</button>
+          <button class="primary-button" data-action="exam-again">Neue Prüfung</button>
+        </div>
+      </div>
+      <div id="resultDetails" class="result-details"></div>
+    </section>
+
+    <section id="loading" class="loading view active">
+      <div class="spinner"></div>
+      <p>Fragen und Illustrationen werden geladen …</p>
+    </section>
+
+    <section id="error" class="error-panel view">
+      <h2>Daten konnten nicht geladen werden</h2>
+      <p id="errorText"></p>
+      <button class="primary-button" onclick="location.reload()">Erneut versuchen</button>
+    </section>
+  </main>
+
+  <footer>
+    <span>BAMF data · statische GitHub-Pages-Anwendung</span>
+  </footer>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

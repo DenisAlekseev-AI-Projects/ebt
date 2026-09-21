@@ -216,3 +216,16 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Scraper output: data belongs in GitHub Releases, not in Git.
+build/
+bamf_images/
+bamf_images_text_only/
+bamf_debug_html/
+bamf_questions.json
+bamf_questions.csv
+bamf_questions_checkpoint.json
+*.pyc
+__pycache__/
+.tessdata/
+tessdata/*.traineddata
